@@ -32,6 +32,12 @@ _READONLY_TOOL_ANNOTATIONS = ToolAnnotations(
     idempotentHint=True,
     openWorldHint=False,
 )
+_DEFAULT_ALLOWED_HOSTS = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+_DEFAULT_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:*",
+    "http://localhost:*",
+    "http://[::1]:*",
+]
 
 
 def _error_result(error: ConversionError) -> CallToolResult:
@@ -75,6 +81,18 @@ def _resolve_year(year: int | None, current_year: int | None) -> int:
     if current_year is not None:
         return current_year
     return date.today().year
+
+
+def _split_csv_env(name: str) -> list[str] | None:
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    values = [value.strip() for value in raw.split(",") if value.strip()]
+    return values or None
+
+
+def _is_loopback_host(host: str) -> bool:
+    return host in {"127.0.0.1", "localhost", "::1", "[::1]"}
 
 
 @mcp.tool(
@@ -176,8 +194,26 @@ def create_starlette_app() -> Starlette:
 
 
 def _configure_runtime_settings() -> None:
-    mcp.settings.host = os.getenv("MCP_HOST", "127.0.0.1")
+    host = os.getenv("MCP_HOST", "127.0.0.1")
+    mcp.settings.host = host
     mcp.settings.port = int(os.getenv("MCP_PORT", "8000"))
+
+    security = mcp.settings.transport_security
+    security.allowed_hosts = list(_DEFAULT_ALLOWED_HOSTS)
+    security.allowed_origins = list(_DEFAULT_ALLOWED_ORIGINS)
+
+    allowed_hosts = _split_csv_env("MCP_ALLOWED_HOSTS")
+    allowed_origins = _split_csv_env("MCP_ALLOWED_ORIGINS")
+    if allowed_hosts is not None:
+        security.allowed_hosts = allowed_hosts
+    if allowed_origins is not None:
+        security.allowed_origins = allowed_origins
+
+    # Public bindings commonly use domains/IPs not covered by localhost defaults.
+    if not _is_loopback_host(host) and allowed_hosts is None:
+        security.allowed_hosts = ["*"]
+    if not _is_loopback_host(host) and allowed_origins is None:
+        security.allowed_origins = ["*"]
 
 
 def main() -> None:

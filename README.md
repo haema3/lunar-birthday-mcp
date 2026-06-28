@@ -34,6 +34,15 @@ python -m app.server
 
 Default server endpoint: `http://127.0.0.1:8000/mcp`
 
+For public/server deployment, set `MCP_HOST=0.0.0.0`.
+
+Optional host/origin allow-list environment variables:
+
+- `MCP_ALLOWED_HOSTS` (comma-separated, e.g. `api.example.com:443,api.example.com:*`)
+- `MCP_ALLOWED_ORIGINS` (comma-separated, e.g. `https://api.example.com,https://console.example.com`)
+
+If `MCP_HOST` is non-localhost and these are not set, the server allows all hosts/origins to avoid `Invalid Host header` in public deployments.
+
 ## Verify with MCP Inspector
 
 ```bash
@@ -58,3 +67,4 @@ pytest -q
 
 - If a tool call returns an error payload, check `code` and `hint` fields.
 - Ensure date range is within supported bounds returned by `conversion_limits`.
+- If you see `Invalid Host header` on a deployed server, set `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` to your domain values.
