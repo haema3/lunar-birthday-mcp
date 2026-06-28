@@ -92,8 +92,12 @@ def _split_csv_env(name: str) -> list[str] | None:
     return values or None
 
 
-def _is_loopback_host(host: str) -> bool:
-    return host in {"127.0.0.1", "localhost", "::1", "[::1]"}
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
 
 
 def _parse_cli_args() -> argparse.Namespace:
@@ -226,21 +230,25 @@ def _configure_runtime_settings(host: str | None = None, port: int | None = None
     mcp.settings.port = int(port if port is not None else os.getenv("MCP_PORT", "8000"))
 
     security = mcp.settings.transport_security
+    security.enable_dns_rebinding_protection = True
     security.allowed_hosts = list(_DEFAULT_ALLOWED_HOSTS)
     security.allowed_origins = list(_DEFAULT_ALLOWED_ORIGINS)
 
     allowed_hosts = _split_csv_env("MCP_ALLOWED_HOSTS")
     allowed_origins = _split_csv_env("MCP_ALLOWED_ORIGINS")
+    strict_host_validation = _env_flag("MCP_STRICT_HOST_VALIDATION", default=False)
+
     if allowed_hosts is not None:
         security.allowed_hosts = allowed_hosts
     if allowed_origins is not None:
         security.allowed_origins = allowed_origins
 
-    # Public bindings commonly use domains/IPs not covered by localhost defaults.
-    if not _is_loopback_host(host) and allowed_hosts is None:
-        security.allowed_hosts = ["*"]
-    if not _is_loopback_host(host) and allowed_origins is None:
-        security.allowed_origins = ["*"]
+    # FastMCP allow-lists do not support bare "*" wildcard host/origin values.
+    # In relaxed mode, disable DNS rebinding checks unless explicit allow-lists are provided.
+    if not strict_host_validation and allowed_hosts is None and allowed_origins is None:
+        security.enable_dns_rebinding_protection = False
+        security.allowed_hosts = []
+        security.allowed_origins = []
 
 
 def main() -> None:

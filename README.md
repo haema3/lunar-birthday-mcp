@@ -41,7 +41,11 @@ Optional host/origin allow-list environment variables:
 - `MCP_ALLOWED_HOSTS` (comma-separated, e.g. `api.example.com:443,api.example.com:*`)
 - `MCP_ALLOWED_ORIGINS` (comma-separated, e.g. `https://api.example.com,https://console.example.com`)
 
-If `MCP_HOST` is non-localhost and these are not set, the server allows all hosts/origins to avoid `Invalid Host header` in public deployments.
+DNS rebinding validation is relaxed by default to avoid `Invalid Host header` issues in reverse-proxy setups. To enforce localhost-only validation defaults, set:
+
+- `MCP_STRICT_HOST_VALIDATION=true`
+
+If you need tighter control in production, set both `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` explicitly.
 
 ## Verify with MCP Inspector
 
@@ -67,4 +71,4 @@ pytest -q
 
 - If a tool call returns an error payload, check `code` and `hint` fields.
 - Ensure date range is within supported bounds returned by `conversion_limits`.
-- If you see `Invalid Host header` on a deployed server, set `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` to your domain values.
+- If you still see `Invalid Host header`, set `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` to your domain values, or disable strict mode by removing `MCP_STRICT_HOST_VALIDATION=true`.
