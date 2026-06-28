@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import contextlib
 import os
 from datetime import date
@@ -93,6 +94,32 @@ def _split_csv_env(name: str) -> list[str] | None:
 
 def _is_loopback_host(host: str) -> bool:
     return host in {"127.0.0.1", "localhost", "::1", "[::1]"}
+
+
+def _parse_cli_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run lunar-birthday MCP server")
+    parser.add_argument(
+        "--transport",
+        default=os.getenv("MCP_TRANSPORT", "streamable-http"),
+        help="MCP transport type",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.getenv("MCP_HOST", "127.0.0.1"),
+        help="Bind host for HTTP transport",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("MCP_PORT", "8000")),
+        help="Bind port for HTTP transport",
+    )
+    parser.add_argument(
+        "--db-path",
+        default=os.getenv("MCP_DB_PATH", ""),
+        help="Reserved for compatibility with orchestrators that pass db-path",
+    )
+    return parser.parse_args()
 
 
 @mcp.tool(
@@ -193,10 +220,10 @@ def create_starlette_app() -> Starlette:
     )
 
 
-def _configure_runtime_settings() -> None:
-    host = os.getenv("MCP_HOST", "127.0.0.1")
+def _configure_runtime_settings(host: str | None = None, port: int | None = None) -> None:
+    host = host or os.getenv("MCP_HOST", "127.0.0.1")
     mcp.settings.host = host
-    mcp.settings.port = int(os.getenv("MCP_PORT", "8000"))
+    mcp.settings.port = int(port if port is not None else os.getenv("MCP_PORT", "8000"))
 
     security = mcp.settings.transport_security
     security.allowed_hosts = list(_DEFAULT_ALLOWED_HOSTS)
@@ -217,8 +244,9 @@ def _configure_runtime_settings() -> None:
 
 
 def main() -> None:
-    _configure_runtime_settings()
-    mcp.run(transport="streamable-http")
+    args = _parse_cli_args()
+    _configure_runtime_settings(host=args.host, port=args.port)
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":
